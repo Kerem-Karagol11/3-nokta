@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mouse ile 3 Nokta Takip</title>
+  <style>
+    /* Temel sayfa stili (denemek için) */
+    html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;}
+    body{display:flex;align-items:center;justify-content:center;background:#0f172a;color:#e6eef8}
+    main{max-width:900px;padding:40px;text-align:center}
+
+    /* İmleci gizle (isteğe göre kapatabilirsiniz) */
+    body { cursor: none; }
+
+    /* Ortak dot stili */
+    .cursor-dot {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      pointer-events: none; /* sayfadaki etkileşimi bozmasın */
+      transform: translate(-50%, -50%);
+      will-change: transform, opacity;
+      z-index: 999999;
+      transition: opacity 150ms linear;
+      opacity: 1;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.45);
+    }
+
+    /* Daha küçük olanlar için farklı boyutlar */
+    .cursor-dot.dot-2 { width: 10px; height: 10px; }
+    .cursor-dot.dot-3 { width: 7px;  height: 7px;  }
+
+    /* Sayfa içi etkileşim gerektiren elemanlarda varsayılan imleci geri getirmek isterseniz
+       örnek: input, textarea, select, a */
+    input, textarea, select, button, a {
+      cursor: auto;
+    }
+
+    /* Dot gizleme örneği (mouse dışına çıkınca) */
+    .hidden-dot { opacity: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>3 Nokta Takip (Mouse)</h1>
+    <p>İmleci hareket ettirince 3 farklı renkte nokta birbirini takip eder. Aşağıdaki örneği kendi sitenize kopyalayın.</p>
+  </main>
+
+  <!-- Dot elemanları -->
+  <div class="cursor-dot dot-1" id="dot-1" style="background:#ff6b6b"></div>
+  <div class="cursor-dot dot-2" id="dot-2" style="background:#ffd166"></div>
+  <div class="cursor-dot dot-3" id="dot-3" style="background:#6ec1ff"></div>
+
+  <script>
+    // Renkleri, boyutları, hızları buradan kolayca değiştirebilirsiniz.
+    (function () {
+      const dots = [
+        { el: document.getElementById('dot-1'), x: -100, y: -100, speed: 0.22 },
+        { el: document.getElementById('dot-2'), x: -100, y: -100, speed: 0.35 },
+        { el: document.getElementById('dot-3'), x: -100, y: -100, speed: 0.5  },
+      ];
+
+      const mouse = { x: window.innerWidth/2, y: window.innerHeight/2, visible: true };
+
+      // Basit lineer interpolasyon (lerp)
+      function lerp(a, b, n) {
+        return (1 - n) * a + n * b;
+      }
+
+      // Fare hareketini yakala
+      window.addEventListener('mousemove', (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+        mouse.visible = true;
+        // görünürlük sınıfını kaldır
+        dots.forEach(d => d.el.classList.remove('hidden-dot'));
+      });
+
+      // Fare pencereden çıkarsa noktaları gizle
+      window.addEventListener('mouseleave', () => {
+        mouse.visible = false;
+        dots.forEach(d => d.el.classList.add('hidden-dot'));
+      });
+
+      window.addEventListener('mouseenter', () => {
+        mouse.visible = true;
+        dots.forEach(d => d.el.classList.remove('hidden-dot'));
+      });
+
+      // Dokunmatik cihazlar için dokunma desteği (isteğe bağlı)
+      window.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches[0]) {
+          mouse.x = e.touches[0].clientX;
+          mouse.y = e.touches[0].clientY;
+          mouse.visible = true;
+          dots.forEach(d => d.el.classList.remove('hidden-dot'));
+        }
+      }, {passive:true});
+
+      window.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches[0]) {
+          mouse.x = e.touches[0].clientX;
+          mouse.y = e.touches[0].clientY;
+        }
+      }, {passive:true});
+
+      // Animasyon döngüsü
+      function render() {
+        // ilk dot doğrudan mouse konumuna yaklaşır, diğerleri bir öncekinin pozisyonuna yaklaşır
+        let targetX = mouse.x;
+        let targetY = mouse.y;
+
+        for (let i = 0; i < dots.length; i++) {
+          const d = dots[i];
+
+          // Her dot farklı hızla hedefe yaklaşsın -> takip efekti
+          d.x = lerp(d.x, targetX, d.speed);
+          d.y = lerp(d.y, targetY, d.speed);
+
+          // Uygula
+          d.el.style.transform = `translate(${d.x}px, ${d.y}px) translate(-50%, -50%)`;
+
+          // Sonraki dot için hedef bu dotun pozisyonu olur (zincirleme)
+          targetX = d.x;
+          targetY = d.y;
+        }
+
+        requestAnimationFrame(render);
+      }
+
+      // Başlat
+      requestAnimationFrame(render);
+
+      // Özelleştirme yardımcı fonksiyonları (isteğe bağlı)
+      window.customCursor = {
+        setColor(index, color) {
+          if (dots[index] && dots[index].el) dots[index].el.style.background = color;
+        },
+        setSize(index, px) {
+          if (dots[index] && dots[index].el) {
+            dots[index].el.style.width = px + 'px';
+            dots[index].el.style.height = px + 'px';
+          }
+        },
+        setSpeed(index, value) {
+          if (dots[index]) dots[index].speed = value;
+        },
+        hide() {
+          dots.forEach(d => d.el.classList.add('hidden-dot'));
+        },
+        show() {
+          dots.forEach(d => d.el.classList.remove('hidden-dot'));
+        }
+      };
+    })();
+  </script>
+</body>
+</html>
